@@ -1,5 +1,6 @@
 import pygame
 import time
+from math import fabs
 
 pygame.init()
 
@@ -21,7 +22,7 @@ class Player(pygame.sprite.Sprite):
         self.y = y
         self.rect = pygame.Rect(self.x, self.y, WIDTH, HEIGHT)
 
-    def update(self, t):
+    def update(self, t, blocks):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT]:
             self.dx = -256
@@ -35,18 +36,18 @@ class Player(pygame.sprite.Sprite):
 
         self.x += self.dx * t
         self.rect = pygame.Rect(self.x, self.y, WIDTH, HEIGHT)
-        self.collide(True)
+        self.collide(True, blocks)
         self.dx = 0
 
         self.y += self.dy * t
         self.rect = pygame.Rect(self.x, self.y, WIDTH, HEIGHT)
-        self.collide(False)
+        self.collide(False, blocks)
         self.dy = 0
 
         self.rect = pygame.Rect(self.x, self.y, WIDTH, HEIGHT)
         pygame.draw.rect(window, (190, 42, 78), self.rect)
 
-    def collide(self, bool):
+    def collide(self, bool, blocks):
         for b in blocks:
             if pygame.sprite.collide_rect(self, b):
                 if self.dx > 0 and bool: self.x = b.rect.x - WIDTH
@@ -87,34 +88,8 @@ map = [[1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
        [1,0,1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
        [1,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1]]
-    
-
-
-blocks = ['elements/0.png','elements/1.png']
 
 BLOCK_WIDTH = BLOCK_HEIGHT = 24
-
-startX = startY = 0
-finishX = finishY = 0
-
-blocks = []
-
-x = y = 64
-for line in map:
-    for el in line:
-        if el == 1:
-            blocks.append(Block(x, y))
-
-        if el == 2:
-            startX = x+2
-            startY = y+2
-        if el == 3:
-            finishX = x+2
-            finishY = y+2
-
-        x += BLOCK_WIDTH
-    y += BLOCK_HEIGHT
-    x = 64
 
 def draw_map(map):
     x = y = 64
@@ -131,7 +106,7 @@ def text_objects(text, font, color):  # color (R,G,B)
     textSurface = font.render(text, True, color)
     return textSurface, textSurface.get_rect()
 
-def gameover():
+def gameover(totalTime):
     pygame.draw.rect(window, (0, 0, 0), (0, 0, DISPLAY[0], DISPLAY[1]))
 
     largeText = pygame.font.SysFont("freesansbold.ttf", 115)
@@ -140,7 +115,7 @@ def gameover():
     window.blit(TextSurf, TextRect)
 
     largeText = pygame.font.SysFont("freesansbold.ttf", 30)
-    TextSurf, TextRect = text_objects("Total time: " + str(totalTime), largeText, (200, 200, 200))
+    TextSurf, TextRect = text_objects("Total time: " + str(round(totalTime, 3)), largeText, (200, 200, 200))
     TextRect.center = ((DISPLAY[0] / 2), (DISPLAY[1] / 2)+80)
     window.blit(TextSurf, TextRect)
 
@@ -152,31 +127,69 @@ def gameover():
                 pygame.quit()
                 quit()
 
-player = Player(startX, startY)
-t = time.time()
-totalTime = 0
 
-timer = pygame.time.Clock()
-while True:
 
-    for event in pygame.event.get():  #вихід при нажатії на крест в углу
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            quit()
+def main():
+    startX = startY = 0
+    finishX = finishY = 0
 
-    pygame.draw.rect(window, (0, 0, 0), (0, 0, DISPLAY[0], DISPLAY[1]))
-    draw_map(map)
+    blocks = []
 
-    TextSurf, TextRect = text_objects("Time: " + str(totalTime), pygame.font.SysFont("freesansbold.ttf", 20), (200, 200, 200))
-    TextRect.x = 32
-    TextRect.y = 32
-    window.blit(TextSurf, TextRect)
+    x = y = 64
+    for line in map:
+        for el in line:
+            if el == 1:
+                blocks.append(Block(x, y))
 
-    t = time.time() - t
-    totalTime += t
-    player.update(t)
+            if el == 2:
+                startX = x + 2
+                startY = y + 2
+            if el == 3:
+                finishX = x + 2
+                finishY = y + 2
+
+            x += BLOCK_WIDTH
+        y += BLOCK_HEIGHT
+        x = 64
+
+    player = Player(startX, startY)
     t = time.time()
-    if player.getX() > finishX and player.getY() > finishY:
-        gameover()
+    totalTime = 0
+    distanceX = player.getX()
+    distanceY = player.getY()
+    totalDistance = 0
 
-    pygame.display.update()
+    while True:
+
+        for event in pygame.event.get():  #вихід при нажатії на крест в углу
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+
+        pygame.draw.rect(window, (0, 0, 0), (0, 0, DISPLAY[0], DISPLAY[1]))
+        draw_map(map)
+
+        TextSurf, TextRect = text_objects("Time: " + str(round(totalTime, 1)), pygame.font.SysFont("freesansbold.ttf", 20), (200, 200, 200))
+        TextRect.x = TextRect.y = 32
+        window.blit(TextSurf, TextRect)
+
+        t = time.time() - t
+        totalTime += t
+
+        player.update(t, blocks)
+        totalDistance += fabs(distanceX - player.getX()) + fabs(distanceY - player.getY())
+
+        distanceX = player.getX()
+        distanceY = player.getY()
+
+        t = time.time()
+
+
+        if player.getX() > finishX and player.getY() > finishY:
+            gameover(totalTime)
+
+        pygame.display.update()
+
+###-------------------------------------------
+
+main()
